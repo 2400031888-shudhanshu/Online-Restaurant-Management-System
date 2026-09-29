@@ -41,7 +41,7 @@ async function loadAccounts() {
         accountList.replaceChildren();
         const row = document.createElement("tr");
         const cell = document.createElement("td");
-        cell.colSpan = 7;
+        cell.colSpan = 8;
         cell.textContent = error.message;
         row.appendChild(cell);
         accountList.appendChild(row);
@@ -67,7 +67,7 @@ function renderAccounts() {
     if (visibleAccounts.length === 0) {
         const row = document.createElement("tr");
         const cell = document.createElement("td");
-        cell.colSpan = 7;
+        cell.colSpan = 8;
         cell.textContent = "No matching accounts.";
         row.appendChild(cell);
         accountList.appendChild(row);
@@ -97,8 +97,52 @@ function renderAccounts() {
 
         appendCell(row, formatDate(account.created_at));
         appendCell(row, formatDate(account.last_login_at));
+
+        const accessCell = document.createElement("td");
+        const accessButton = document.createElement("button");
+        const isActive = Number(account.is_active) === 1;
+        const isCurrentAdmin = Number(account.user_id) === Number(accountUser?.user_id);
+        accessButton.type = "button";
+        accessButton.className = isActive ? "staff-remove-button" : "";
+        accessButton.textContent = isActive ? "Deactivate" : "Activate";
+        accessButton.disabled = isActive && isCurrentAdmin;
+        accessButton.title = accessButton.disabled
+            ? "You cannot deactivate your own account"
+            : `${isActive ? "Deactivate" : "Activate"} this account`;
+        accessButton.addEventListener("click", () => changeAccountAccess(account, !isActive));
+        accessCell.appendChild(accessButton);
+        row.appendChild(accessCell);
         accountList.appendChild(row);
     });
+}
+
+async function changeAccountAccess(account, isActive) {
+    const action = isActive ? "activate" : "deactivate";
+    if (!window.confirm(`Are you sure you want to ${action} ${account.name}'s account?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/users/${account.user_id}/access`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${accountToken}`
+            },
+            body: JSON.stringify({ is_active: isActive })
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            window.alert(data.message || "Unable to update account access.");
+            return;
+        }
+
+        await loadAccounts();
+    } catch (error) {
+        console.error(error);
+        window.alert("Unable to connect to the server.");
+    }
 }
 
 function appendCell(row, value) {

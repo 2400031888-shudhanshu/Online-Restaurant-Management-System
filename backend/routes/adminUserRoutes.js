@@ -22,6 +22,79 @@ router.get("/", verifyToken, requireAdmin, (req, res) => {
     });
 });
 
+router.put("/:user_id/access", verifyToken, requireAdmin, (req, res) => {
+    const userId = Number(req.params.user_id);
+    const isActive = req.body.is_active;
+
+    if (!Number.isInteger(userId) || userId < 1 || typeof isActive !== "boolean") {
+        return res.status(400).json({ message: "Provide a valid account ID and access state." });
+    }
+
+    if (!isActive && userId === Number(req.user.userId)) {
+        return res.status(409).json({ message: "You cannot deactivate your own admin account." });
+    }
+
+    db.query(
+        "SELECT role, is_active FROM users WHERE user_id = ?",
+        [userId],
+        (lookupError, rows) => {
+            if (lookupError) {
+                console.error("Unable to check account access:", lookupError);
+                return res.status(500).json({ message: "Unable to update account access." });
+            }
+
+            if (!rows.length) {
+                return res.status(404).json({ message: "Account not found." });
+            }
+
+            const updateAccess = () => {
+                db.query(
+                    "UPDATE users SET is_active = ? WHERE user_id = ?",
+                    [isActive ? 1 : 0, userId],
+                    (updateError, result) => {
+                        if (updateError) {
+                            console.error("Unable to update account access:", updateError);
+                            return res.status(500).json({ message: "Unable to update account access." });
+                        }
+
+                        if (result.affectedRows === 0) {
+                            return res.status(404).json({ message: "Account not found." });
+                        }
+
+                        return res.json({
+                            message: `Account ${isActive ? "activated" : "deactivated"}.`,
+                            user_id: userId,
+                            is_active: isActive ? 1 : 0
+                        });
+                    }
+                );
+            };
+
+            if (!isActive && rows[0].role === "ADMIN" && Number(rows[0].is_active) === 1) {
+                db.query(
+                    "SELECT COUNT(*) AS active_admins FROM users WHERE role = 'ADMIN' AND is_active = 1 AND user_id <> ?",
+                    [userId],
+                    (countError, counts) => {
+                        if (countError) {
+                            console.error("Unable to verify active administrators:", countError);
+                            return res.status(500).json({ message: "Unable to update account access." });
+                        }
+
+                        if (counts[0].active_admins === 0) {
+                            return res.status(409).json({ message: "The last active admin account cannot be deactivated." });
+                        }
+
+                        return updateAccess();
+                    }
+                );
+                return;
+            }
+
+            return updateAccess();
+        }
+    );
+});
+
 router.post("/", verifyToken, requireAdmin, async (req, res) => {
     const name = String(req.body.name || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();

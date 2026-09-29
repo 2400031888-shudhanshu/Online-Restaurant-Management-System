@@ -11,6 +11,7 @@ A full-stack restaurant ordering and operations app. Customers can browse the li
 - Admin menu management: add, edit, enable, disable, and remove items.
 - Admin staff management: create staff accounts and deactivate access while preserving order history.
 - Admin-only account directory with role, access status, registration date, and last sign-in activity; passwords are never exposed.
+- Admins can activate or deactivate registered accounts without deleting their history. Self-deactivation and removal of the last active admin are blocked.
 - Optional email notification to the restaurant when an order is placed.
 
 ## Requirements
@@ -74,7 +75,7 @@ For Gmail, create an App Password and use it as `SMTP_PASSWORD`; do not use your
 - Customers create an account, sign in, browse the menu, add items to the cart, check out, and view or print their orders.
 - Sign in through **Admin Portal** with an active `ADMIN` account to manage orders and menu items.
 - On the admin dashboard, use **Manage Staff** to create staff logins or remove staff access. Staff sign in through **Admin Portal** and can process orders, but cannot manage staff or edit menu items.
-- Use **Registered Accounts** to search and filter customers, staff, and admins. Last sign-in tracking starts with this update, so existing accounts show **Never** until they sign in again.
+- Use **Registered Accounts** to search and filter customers, staff, and admins, and activate or deactivate access. Last sign-in tracking starts with this update, so existing accounts show **Never** until they sign in again.
 - The public contact email is `shudhanshukumar973@gmail.com`.
 
 ## Project Layout

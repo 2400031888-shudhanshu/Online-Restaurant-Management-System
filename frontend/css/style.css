@@ -1491,6 +1491,21 @@ label {
     min-width: 160px;
 }
 
+.staff-table th:last-child,
+.staff-table td:last-child {
+    min-width: 132px;
+    text-align: right;
+}
+
+.staff-table td:last-child button {
+    min-height: 34px;
+    padding: 6px 10px;
+}
+
+.staff-table td:last-child button:disabled {
+    opacity: 0.45;
+}
+
 .account-role,
 .account-state {
     display: inline-block;
