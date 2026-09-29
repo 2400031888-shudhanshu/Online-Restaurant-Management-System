@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Restaurant Management System</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body class="home-page">
+    <header class="home-header">
+        <a class="home-brand" href="index.html">Online Restaurant</a>
+        <nav aria-label="Main navigation">
+            <a href="#about">About</a>
+            <a id="login-link" href="login.html">Login</a>
+            <a id="register-link" href="register.html">Create account</a>
+            <a href="admin-login.html">Admin Portal</a>
+            <button id="logout-button" type="button" hidden>Log out</button>
+        </nav>
+    </header>
+
+    <main class="home-main">
+        <section class="home-hero" aria-labelledby="home-title">
+            <img
+                src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1800&q=85"
+                alt="A freshly prepared restaurant meal served at the table"
+                fetchpriority="high"
+            >
+            <div class="home-hero-copy">
+                <p class="home-eyebrow">FRESH FROM OUR KITCHEN</p>
+                <h1 id="home-title">Good food brings us together.</h1>
+                <p>Made with care, served with warmth, and ready when you are.</p>
+            </div>
+        </section>
+
+        <section id="about" class="home-about">
+            <p class="home-eyebrow">ABOUT OUR RESTAURANT</p>
+            <h2>Every meal deserves a little care.</h2>
+            <p>We prepare familiar favorites with fresh ingredients and thoughtful service. Browse our menu, place an order, and let us take care of the rest.</p>
+        </section>
+
+        <section class="home-modules" aria-label="Customer modules" hidden>
+            <h2>Order food</h2>
+            <div class="home-module-grid">
+                <a class="home-module home-module-featured" href="menu.html">
+                    <span class="home-module-number">01</span>
+                    <span class="home-module-title">Browse menu</span>
+                    <span class="home-module-detail">Explore dishes and add items to your cart</span>
+                    <span class="home-module-arrow" aria-hidden="true">&#8599;</span>
+                </a>
+                <a class="home-module" href="cart.html">
+                    <span class="home-module-number">02</span>
+                    <span class="home-module-title">Shopping cart</span>
+                    <span class="home-module-detail">Review selected items</span>
+                    <span class="home-module-arrow" aria-hidden="true">&#8599;</span>
+                </a>
+                <a class="home-module" href="checkout.html">
+                    <span class="home-module-number">03</span>
+                    <span class="home-module-title">Checkout</span>
+                    <span class="home-module-detail">Confirm and place an order</span>
+                    <span class="home-module-arrow" aria-hidden="true">&#8599;</span>
+                </a>
+                <a class="home-module" href="orders.html">
+                    <span class="home-module-number">04</span>
+                    <span class="home-module-title">My orders</span>
+                    <span class="home-module-detail">View your order history and status</span>
+                    <span class="home-module-arrow" aria-hidden="true">&#8599;</span>
+                </a>
+            </div>
+        </section>
+
+        <section class="home-modules home-admin-modules" aria-label="Restaurant administration" hidden>
+            <h2>Restaurant workspace</h2>
+            <div class="home-module-grid">
+                <a class="home-module" href="admin.html">
+                    <span class="home-module-number">A1</span>
+                    <span class="home-module-title">Confirm orders</span>
+                    <span class="home-module-detail">Confirm, prepare, deliver, or cancel customer orders</span>
+                    <span class="home-module-arrow" aria-hidden="true">&#8599;</span>
+                </a>
+                <a class="home-module" href="admin-food.html">
+                    <span class="home-module-number">A2</span>
+                    <span class="home-module-title">Edit menu</span>
+                    <span class="home-module-detail">Add, update, enable, or remove menu items</span>
+                    <span class="home-module-arrow" aria-hidden="true">&#8599;</span>
+                </a>
+                <a class="home-module" href="admin-staff.html">
+                    <span class="home-module-number">A3</span>
+                    <span class="home-module-title">Manage staff</span>
+                    <span class="home-module-detail">Create staff logins or remove staff access</span>
+                    <span class="home-module-arrow" aria-hidden="true">&#8599;</span>
+                </a>
+            </div>
+        </section>
+    </main>
+    <footer class="site-footer">
+        <p>Created by <span>Shudhanshu Kumar</span></p>
+        <p>Contact: <a href="mailto:shudhanshukumar973@gmail.com">shudhanshukumar973@gmail.com</a></p>
+    </footer>
+    <script src="js/main.js"></script>
+</body>
+</html>
