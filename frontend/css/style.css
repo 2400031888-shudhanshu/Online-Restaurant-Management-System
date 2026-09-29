@@ -1445,6 +1445,83 @@ label {
     border-color: #8f352a;
 }
 
+.account-directory {
+    margin-top: 24px;
+}
+
+.account-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.account-summary-item {
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--gold);
+    border-radius: 5px;
+}
+
+.account-summary-item strong {
+    display: block;
+    color: var(--forest-deep);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 26px;
+}
+
+.account-summary-item span {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.account-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 20px 0 14px;
+}
+
+.account-filters input {
+    flex: 1 1 260px;
+}
+
+.account-filters select {
+    min-width: 160px;
+}
+
+.account-role,
+.account-state {
+    display: inline-block;
+    padding: 3px 8px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--forest);
+    background: #edf0e9;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.account-state-inactive {
+    color: #8f352a;
+    background: #f7e8e4;
+    border-color: #e5c4bc;
+}
+
+@media (max-width: 600px) {
+    .account-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .account-filters,
+    .account-filters input,
+    .account-filters select {
+        width: 100%;
+    }
+}
+
 @media (max-width: 520px) {
     .home-hero {
         min-height: 360px;

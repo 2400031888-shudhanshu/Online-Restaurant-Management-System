@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
 	phone VARCHAR(15) DEFAULT NULL,
 	role ENUM('CUSTOMER', 'ADMIN', 'STAFF') DEFAULT 'CUSTOMER',
 	is_active TINYINT(1) NOT NULL DEFAULT 1,
+	last_login_at TIMESTAMP NULL DEFAULT NULL,
 	created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (user_id),
 	UNIQUE KEY uq_users_email (email)
@@ -31,6 +32,18 @@ SET @add_active_column = IF(
 PREPARE add_active_column_stmt FROM @add_active_column;
 EXECUTE add_active_column_stmt;
 DEALLOCATE PREPARE add_active_column_stmt;
+
+SET @add_last_login_column = IF(
+	(SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+	 WHERE TABLE_SCHEMA = DATABASE()
+	   AND TABLE_NAME = 'users'
+	   AND COLUMN_NAME = 'last_login_at') = 0,
+	'ALTER TABLE users ADD COLUMN last_login_at TIMESTAMP NULL DEFAULT NULL',
+	'SELECT 1'
+);
+PREPARE add_last_login_column_stmt FROM @add_last_login_column;
+EXECUTE add_last_login_column_stmt;
+DEALLOCATE PREPARE add_last_login_column_stmt;
 
 CREATE TABLE IF NOT EXISTS categories (
 	category_id INT NOT NULL AUTO_INCREMENT,

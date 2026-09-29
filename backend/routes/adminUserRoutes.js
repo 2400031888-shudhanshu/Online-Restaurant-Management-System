@@ -5,6 +5,23 @@ const router = express.Router();
 const db = require("../config/database");
 const { verifyToken, requireAdmin } = require("../middleware/authMiddleware");
 
+router.get("/", verifyToken, requireAdmin, (req, res) => {
+    const sql = `
+        SELECT user_id, name, email, phone, role, is_active, created_at, last_login_at
+        FROM users
+        ORDER BY created_at DESC, user_id DESC
+    `;
+
+    db.query(sql, (error, accounts) => {
+        if (error) {
+            console.error("Unable to load accounts:", error);
+            return res.status(500).json({ message: "Unable to load registered accounts." });
+        }
+
+        return res.json(accounts);
+    });
+});
+
 router.post("/", verifyToken, requireAdmin, async (req, res) => {
     const name = String(req.body.name || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();

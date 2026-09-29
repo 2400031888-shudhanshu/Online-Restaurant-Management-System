@@ -97,7 +97,6 @@ router.post("/register", async (req, res) => {
 // LOGIN
 // =============================
 router.post("/login", (req, res) => {
-
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -110,64 +109,59 @@ router.post("/login", (req, res) => {
         SELECT *
         FROM users
         WHERE email = ?
-        AND is_active = 1
+          AND is_active = 1
     `;
 
-    db.query(sql, [email], async (err, results) => {
-
-        if (err) {
-            console.error("Database error:", err);
-
-            return res.status(500).json({
-                message: "Database error"
-            });
+    db.query(sql, [email], (error, results) => {
+        if (error) {
+            console.error("Database error:", error);
+            return res.status(500).json({ message: "Database error" });
         }
 
         if (results.length === 0) {
-            return res.status(401).json({
-                message: "Invalid email or password"
-            });
+            return res.status(401).json({ message: "Invalid email or password" });
         }
 
         const user = results[0];
-
-        // Compare password
-        const passwordMatch = await bcrypt.compare(
-            password,
-            user.password
-        );
-
-        if (!passwordMatch) {
-            return res.status(401).json({
-                message: "Invalid email or password"
-            });
-        }
-
-        // Create JWT token
-        const token = jwt.sign(
-            {
-                userId: user.user_id,
-                email: user.email,
-                role: user.role
-            },
-            process.env.JWT_SECRET || "restaurant_secret",
-            {
-                expiresIn: "1d"
+        bcrypt.compare(password, user.password).then(passwordMatches => {
+            if (!passwordMatches) {
+                return res.status(401).json({ message: "Invalid email or password" });
             }
-        );
 
-        res.json({
-            message: "Login successful",
+            db.query(
+                "UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE user_id = ?",
+                [user.user_id],
+                updateError => {
+                    if (updateError) {
+                        console.error("Unable to record login time:", updateError);
+                    }
 
-            token: token,
+                    const token = jwt.sign(
+                        {
+                            userId: user.user_id,
+                            email: user.email,
+                            role: user.role
+                        },
+                        process.env.JWT_SECRET || "restaurant_secret",
+                        { expiresIn: "1d" }
+                    );
 
-            user: {
-                user_id: user.user_id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone,
-                role: user.role
-            }
+                    return res.json({
+                        message: "Login successful",
+                        token,
+                        user: {
+                            user_id: user.user_id,
+                            name: user.name,
+                            email: user.email,
+                            phone: user.phone,
+                            role: user.role
+                        }
+                    });
+                }
+            );
+        }).catch(compareError => {
+            console.error("Password verification failed:", compareError);
+            return res.status(500).json({ message: "Unable to verify login." });
         });
     });
 });
