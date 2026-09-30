@@ -54,7 +54,7 @@ async function loadCheckout() {
             ? await paymentResponse.json()
             : { upi_vpa: "" };
 
-        displayCheckout(data.items, data.total, paymentOptions.upi_vpa);
+        displayCheckout(data.items, data.total, paymentOptions);
 
     } catch (error) {
         console.error("Checkout Error:", error);
@@ -85,7 +85,7 @@ function escapeHtml(value) {
     })[character]);
 }
 
-function displayCheckout(items, total, upiVpa) {
+function displayCheckout(items, total, upiOptions) {
     if (!checkoutContainer) {
         return;
     }
@@ -100,6 +100,9 @@ function displayCheckout(items, total, upiVpa) {
         `;
         return;
     }
+
+    const upiVpa = upiOptions.upi_vpa;
+    const upiPayeeName = upiOptions.upi_payee_name || "Shudhanshu Kumar";
 
     let html = `
         <h3>Order Summary</h3>
@@ -131,9 +134,9 @@ function displayCheckout(items, total, upiVpa) {
         </fieldset>
         <div id="upi-details" hidden>
             ${upiVpa
-                     ? `<p>Pay ₹${Number(total).toFixed(2)} to <strong>${escapeHtml(upiVpa)}</strong>.</p>
-                         <img class="upi-qr-code" src="/api/orders/upi-qr?amount=${encodeURIComponent(Number(total).toFixed(2))}" alt="Scan to pay ${Number(total).toFixed(2)} rupees to ${escapeHtml(upiVpa)}">
-                         <a class="button-link" href="upi://pay?pa=${encodeURIComponent(upiVpa)}&pn=Online%20Restaurant&am=${Number(total).toFixed(2)}&cu=INR&tn=Restaurant%20order%20payment">Open UPI app</a>`
+                     ? `<p>Scan the QR, confirm <strong>${escapeHtml(upiPayeeName)}</strong> (${escapeHtml(upiVpa)}), then enter <strong>₹${Number(total).toFixed(2)}</strong> in your UPI app. The QR does not include an amount.</p>
+                         <img class="upi-qr-code" src="/api/orders/upi-qr" alt="UPI QR for ${escapeHtml(upiPayeeName)} at ${escapeHtml(upiVpa)}; enter the amount in your app">
+                         <a class="button-link" href="upi://pay?pa=${encodeURIComponent(upiVpa)}&pn=${encodeURIComponent(upiPayeeName)}&cu=INR&tn=Restaurant%20order%20payment">Open UPI app</a>`
                 : "<p>The restaurant UPI ID is not configured yet. Add UPI_VPA to backend/.env before accepting UPI payments.</p>"}
             <label for="upi-transaction-id">UPI transaction reference (optional)</label>
             <input id="upi-transaction-id" maxlength="100" autocomplete="off" placeholder="Enter UPI reference after paying">

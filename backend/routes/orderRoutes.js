@@ -246,19 +246,16 @@ router.post("/place", verifyToken, (req, res) => {
 // =====================================
 
 router.get("/payment-options", (req, res) => {
-    return res.json({ upi_vpa: process.env.UPI_VPA || "8809273370@upi" });
+    return res.json({
+        upi_vpa: process.env.UPI_VPA || "8809273370@upi",
+        upi_payee_name: process.env.UPI_PAYEE_NAME || "Shudhanshu Kumar"
+    });
 });
 
 router.get("/upi-qr", async (req, res) => {
-    const amount = Number(req.query.amount);
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 1000000) {
-        return res.status(400).json({ message: "A valid payment amount is required." });
-    }
-
     const paymentUri = new URL("upi://pay");
     paymentUri.searchParams.set("pa", process.env.UPI_VPA || "8809273370@upi");
-    paymentUri.searchParams.set("pn", "Online Restaurant");
-    paymentUri.searchParams.set("am", amount.toFixed(2));
+    paymentUri.searchParams.set("pn", process.env.UPI_PAYEE_NAME || "Shudhanshu Kumar");
     paymentUri.searchParams.set("cu", "INR");
     paymentUri.searchParams.set("tn", "Restaurant order payment");
 
