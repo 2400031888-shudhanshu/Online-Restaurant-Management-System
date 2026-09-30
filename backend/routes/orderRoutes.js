@@ -2,6 +2,7 @@ const express = require("express");
 
 const router = express.Router();
 const db = require("../config/database");
+const QRCode = require("qrcode");
 
 const {
     verifyToken,
@@ -10,6 +11,43 @@ const {
 } = require("../middleware/authMiddleware");
 const { sendOrderAlert } = require("../config/orderNotification");
 
+function attachOrderItems(orders, callback) {
+    if (orders.length === 0) {
+        return callback(null, orders);
+    }
+
+    const orderIds = orders.map(order => order.order_id);
+    const sql = `
+        SELECT
+            oi.order_id,
+            oi.food_id,
+            COALESCE(f.food_name, 'Unavailable item') AS food_name,
+            oi.quantity,
+            oi.price
+        FROM order_items oi
+        LEFT JOIN food_items f ON f.food_id = oi.food_id
+        WHERE oi.order_id IN (?)
+        ORDER BY oi.order_id, oi.order_item_id
+    `;
+
+    db.query(sql, [orderIds], (error, items) => {
+        if (error) {
+            return callback(error);
+        }
+
+        const itemsByOrder = new Map(orderIds.map(orderId => [orderId, []]));
+        items.forEach(item => {
+            item.subtotal = Number(item.price) * Number(item.quantity);
+            itemsByOrder.get(item.order_id).push(item);
+        });
+
+        orders.forEach(order => {
+            order.items = itemsByOrder.get(order.order_id);
+        });
+
+        return callback(null, orders);
+    });
+}
 
 // =====================================
 // PLACE ORDER
@@ -19,11 +57,21 @@ router.post("/place", verifyToken, (req, res) => {
 
     const user_id = req.user.userId;
     const delivery_address = String(req.body.delivery_address || "").trim();
+    const payment_method = String(req.body.payment_method || "").trim().toUpperCase();
+    const transaction_id = String(req.body.transaction_id || "").trim();
 
     if (!delivery_address) {
         return res.status(400).json({
             message: "Delivery address is required"
         });
+    }
+
+    if (!["COD", "UPI"].includes(payment_method)) {
+        return res.status(400).json({ message: "Choose COD or UPI payment." });
+    }
+
+    if (transaction_id.length > 100) {
+        return res.status(400).json({ message: "UPI reference must be 100 characters or fewer." });
     }
 
 
@@ -124,67 +172,42 @@ router.post("/place", verifyToken, (req, res) => {
                     const orderId = orderResult.insertId;
 
 
-                    // Insert order items
-                    let completed = 0;
-                    let failed = false;
+                    db.query(
+                        `INSERT INTO payments (order_id, payment_method, payment_status, transaction_id)
+                         VALUES (?, ?, 'PENDING', ?)`,
+                        [orderId, payment_method, transaction_id || null],
+                        paymentError => {
+                            if (paymentError) {
+                                console.error(paymentError);
+                                db.query("DELETE FROM orders WHERE order_id = ?", [orderId], () => {});
+                                return res.status(500).json({ message: "Unable to save payment details" });
+                            }
 
-                    items.forEach(item => {
-
-                        const itemSql = `
-                            INSERT INTO order_items
-                            (order_id, food_id, quantity, price)
-                            VALUES (?, ?, ?, ?)
-                        `;
-
-                        db.query(
-                            itemSql,
-                            [
+                            const orderItems = items.map(item => [
                                 orderId,
                                 item.food_id,
                                 item.quantity,
                                 item.price
-                            ],
-                            (err) => {
+                            ]);
 
-                                if (failed) {
-                                    return;
-                                }
-
-                                if (err) {
-
-                                    failed = true;
-
-                                    console.error(err);
-
-                                    return res.status(500).json({
-                                        message:
-                                            "Unable to save order items"
-                                    });
-                                }
-
-
-                                completed++;
-
-                                // All items inserted
-                                if (completed === items.length) {
-
-                                    // Clear cart
-                                    const clearCartSql = `
-                                        DELETE FROM cart_items
-                                        WHERE cart_id = ?
-                                    `;
+                            db.query(
+                                `INSERT INTO order_items (order_id, food_id, quantity, price) VALUES ?`,
+                                [orderItems],
+                                itemsError => {
+                                    if (itemsError) {
+                                        console.error(itemsError);
+                                        db.query("DELETE FROM orders WHERE order_id = ?", [orderId], () => {});
+                                        return res.status(500).json({ message: "Unable to save order items" });
+                                    }
 
                                     db.query(
-                                        clearCartSql,
+                                        "DELETE FROM cart_items WHERE cart_id = ?",
                                         [cartId],
-                                        (err) => {
-
-                                            if (err) {
-                                                console.error(err);
-
+                                        clearError => {
+                                            if (clearError) {
+                                                console.error(clearError);
                                                 return res.status(500).json({
-                                                    message:
-                                                        "Order created but cart could not be cleared"
+                                                    message: "Order created but cart could not be cleared"
                                                 });
                                             }
 
@@ -198,23 +221,19 @@ router.post("/place", verifyToken, (req, res) => {
                                                 console.error("Order email alert failed:", emailError.message);
                                             });
 
-                                            res.status(201).json({
-
-                                                message:
-                                                    "Order placed successfully",
-
-                                                order_id:
-                                                    orderId,
-
-                                                total_amount:
-                                                    totalAmount
+                                            return res.status(201).json({
+                                                message: "Order placed successfully",
+                                                order_id: orderId,
+                                                total_amount: totalAmount,
+                                                payment_method,
+                                                payment_status: "PENDING"
                                             });
                                         }
                                     );
                                 }
-                            }
-                        );
-                    });
+                            );
+                        }
+                    );
                 }
             );
         });
@@ -226,6 +245,38 @@ router.post("/place", verifyToken, (req, res) => {
 // GET USER ORDERS
 // =====================================
 
+router.get("/payment-options", (req, res) => {
+    return res.json({ upi_vpa: process.env.UPI_VPA || "8809273370@upi" });
+});
+
+router.get("/upi-qr", async (req, res) => {
+    const amount = Number(req.query.amount);
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 1000000) {
+        return res.status(400).json({ message: "A valid payment amount is required." });
+    }
+
+    const paymentUri = new URL("upi://pay");
+    paymentUri.searchParams.set("pa", process.env.UPI_VPA || "8809273370@upi");
+    paymentUri.searchParams.set("pn", "Online Restaurant");
+    paymentUri.searchParams.set("am", amount.toFixed(2));
+    paymentUri.searchParams.set("cu", "INR");
+    paymentUri.searchParams.set("tn", "Restaurant order payment");
+
+    try {
+        const image = await QRCode.toBuffer(paymentUri.toString(), {
+            type: "png",
+            errorCorrectionLevel: "M",
+            margin: 2,
+            width: 320
+        });
+        res.set("Cache-Control", "no-store");
+        res.type("png").send(image);
+    } catch (error) {
+        console.error("Unable to create UPI QR code:", error);
+        return res.status(500).json({ message: "Unable to create UPI payment QR." });
+    }
+});
+
 router.get(
     "/user/:user_id",
     verifyToken,
@@ -236,14 +287,18 @@ router.get(
 
     const sql = `
         SELECT
-            order_id,
-            total_amount,
-            order_status,
-            delivery_address,
-            order_date
-        FROM orders
-        WHERE user_id = ?
-        ORDER BY order_date DESC
+            o.order_id,
+            o.total_amount,
+            o.order_status,
+            o.delivery_address,
+            o.order_date,
+            p.payment_method,
+            p.payment_status,
+            p.transaction_id
+        FROM orders o
+        LEFT JOIN payments p ON p.order_id = o.order_id
+        WHERE o.user_id = ?
+        ORDER BY o.order_date DESC
     `;
 
     db.query(sql, [userId], (err, results) => {
@@ -256,7 +311,14 @@ router.get(
             });
         }
 
-        res.json(results);
+        attachOrderItems(results, (itemsError, orders) => {
+            if (itemsError) {
+                console.error(itemsError);
+                return res.status(500).json({ message: "Unable to fetch order items" });
+            }
+
+            return res.json(orders);
+        });
     });
 });
 
@@ -273,14 +335,18 @@ router.get(
 
         const sql = `
             SELECT
-                order_id,
-                total_amount,
-                order_status,
-                delivery_address,
-                order_date
-            FROM orders
-            WHERE user_id = ?
-            ORDER BY order_date DESC
+                o.order_id,
+                o.total_amount,
+                o.order_status,
+                o.delivery_address,
+                o.order_date,
+                p.payment_method,
+                p.payment_status,
+                p.transaction_id
+            FROM orders o
+            LEFT JOIN payments p ON p.order_id = o.order_id
+            WHERE o.user_id = ?
+            ORDER BY o.order_date DESC
         `;
 
         db.query(
@@ -301,7 +367,14 @@ router.get(
                     });
                 }
 
-                res.json(results);
+                attachOrderItems(results, (itemsError, orders) => {
+                    if (itemsError) {
+                        console.error("My Order Items Error:", itemsError);
+                        return res.status(500).json({ message: "Unable to fetch order items" });
+                    }
+
+                    return res.json(orders);
+                });
             }
         );
     }
@@ -316,14 +389,22 @@ router.get("/admin/all", verifyToken, requireStaff, (req, res) => {
 
     const sql = `
         SELECT
-            order_id,
-            user_id,
-            total_amount,
-            order_status,
-            delivery_address,
-            order_date
-        FROM orders
-        ORDER BY order_date DESC
+            o.order_id,
+            o.user_id,
+            u.name AS customer_name,
+            u.email AS customer_email,
+            u.phone AS customer_phone,
+            o.total_amount,
+            o.order_status,
+            o.delivery_address,
+            o.order_date,
+            p.payment_method,
+            p.payment_status,
+            p.transaction_id
+        FROM orders o
+        JOIN users u ON u.user_id = o.user_id
+        LEFT JOIN payments p ON p.order_id = o.order_id
+        ORDER BY o.order_date DESC
     `;
 
 
@@ -340,7 +421,14 @@ router.get("/admin/all", verifyToken, requireStaff, (req, res) => {
         }
 
 
-        res.json(results);
+        attachOrderItems(results, (itemsError, orders) => {
+            if (itemsError) {
+                console.error(itemsError);
+                return res.status(500).json({ message: "Unable to fetch order items" });
+            }
+
+            return res.json(orders);
+        });
 
     });
 
@@ -359,6 +447,41 @@ router.put(
 
     const orderId =
         req.params.order_id;
+
+router.put("/:order_id/payment/confirm", verifyToken, requireStaff, (req, res) => {
+    const orderId = Number(req.params.order_id);
+    if (!Number.isInteger(orderId) || orderId < 1) {
+        return res.status(400).json({ message: "Invalid order ID." });
+    }
+
+    const isDelivery = req.user.role === "DELIVERY";
+    const sql = isDelivery
+        ? `UPDATE payments p
+           JOIN orders o ON o.order_id = p.order_id
+           SET p.payment_status = 'PAID', p.payment_date = CURRENT_TIMESTAMP
+           WHERE p.order_id = ? AND p.payment_status = 'PENDING'
+             AND p.payment_method = 'COD' AND o.order_status = 'DELIVERED'`
+        : `UPDATE payments
+           SET payment_status = 'PAID', payment_date = CURRENT_TIMESTAMP
+           WHERE order_id = ? AND payment_status = 'PENDING'`;
+
+    db.query(sql, [orderId], (error, result) => {
+        if (error) {
+            console.error("Unable to confirm payment:", error);
+            return res.status(500).json({ message: "Unable to confirm payment." });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(409).json({
+                message: isDelivery
+                    ? "Delivery accounts can confirm cash only after the order is marked delivered."
+                    : "No pending payment was found for this order."
+            });
+        }
+
+        return res.json({ message: "Payment marked as paid." });
+    });
+});
 
     const { order_status } =
         req.body;
@@ -386,17 +509,26 @@ router.put(
 
     }
 
+    const isDelivery = req.user.role === "DELIVERY";
+    if (isDelivery && !["OUT_FOR_DELIVERY", "DELIVERED"].includes(order_status)) {
+        return res.status(403).json({ message: "Delivery accounts can only update delivery progress." });
+    }
 
-    const sql = `
-        UPDATE orders
-        SET order_status = ?
-        WHERE order_id = ?
-    `;
+
+    const sql = isDelivery
+        ? `UPDATE orders
+           SET order_status = ?
+           WHERE order_id = ?
+             AND ((order_status = 'READY' AND ? = 'OUT_FOR_DELIVERY')
+               OR (order_status = 'OUT_FOR_DELIVERY' AND ? = 'DELIVERED'))`
+        : `UPDATE orders SET order_status = ? WHERE order_id = ?`;
 
 
     db.query(
         sql,
-        [order_status, orderId],
+        isDelivery
+            ? [order_status, orderId, order_status, order_status]
+            : [order_status, orderId],
         (err, result) => {
 
             if (err) {
@@ -415,10 +547,12 @@ router.put(
 
             if (result.affectedRows === 0) {
 
-                return res.status(404).json({
+                return res.status(isDelivery ? 409 : 404).json({
 
                     message:
-                        "Order not found"
+                        isDelivery
+                            ? "Order must be READY before pickup or OUT_FOR_DELIVERY before delivery completion."
+                            : "Order not found"
 
                 });
 

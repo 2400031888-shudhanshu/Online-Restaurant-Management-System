@@ -9,6 +9,10 @@ if (currentUser?.role !== "ADMIN") {
     });
 }
 
+if (currentUser?.role === "DELIVERY") {
+    document.querySelector("main h2").textContent = "Delivery Desk";
+}
+
 
 // =====================================
 // LOAD ALL ORDERS
@@ -67,6 +71,16 @@ const response = await fetch(
 // DISPLAY ORDERS
 // =====================================
 
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[character]);
+}
+
 function displayOrders(orders) {
 
     if (orders.length === 0) {
@@ -94,6 +108,34 @@ function displayOrders(orders) {
             new Date(order.order_date)
                 .toLocaleString();
 
+        const orderItems = (order.items || []).map(item => `
+            <li>${escapeHtml(item.food_name)} × ${Number(item.quantity)}
+                <span>₹${Number(item.price).toFixed(2)} each</span>
+                <strong>₹${Number(item.subtotal).toFixed(2)}</strong>
+            </li>
+        `).join("");
+
+        const statuses = currentUser?.role === "DELIVERY"
+            ? order.order_status === "READY"
+                ? ["READY", "OUT_FOR_DELIVERY"]
+                : order.order_status === "OUT_FOR_DELIVERY"
+                    ? ["OUT_FOR_DELIVERY", "DELIVERED"]
+                    : [order.order_status]
+            : ["PENDING", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"];
+
+        const statusOptions = statuses.map(status => `
+            <option value="${status}" ${order.order_status === status ? "selected" : ""}>
+                ${status.replaceAll("_", " ")}
+            </option>
+        `).join("");
+
+        const canConfirmPayment = order.payment_status === "PENDING" &&
+            (currentUser?.role !== "DELIVERY" ||
+                (order.payment_method === "COD" && order.order_status === "DELIVERED"));
+        const confirmPaymentButton = canConfirmPayment
+            ? `<button type="button" onclick="confirmPayment(${order.order_id})">${order.payment_method === "COD" ? "Confirm cash received" : "Confirm UPI payment"}</button>`
+            : "";
+
 
         html += `
 
@@ -105,24 +147,25 @@ function displayOrders(orders) {
                         Order #${order.order_id}
                     </h3>
 
-                    <strong>
-                        ₹${Number(
-                            order.total_amount
-                        ).toFixed(2)}
-                    </strong>
+                    <strong>₹${Number(order.total_amount).toFixed(2)}</strong>
 
                 </div>
 
 
-                <p>
-                    <strong>Customer ID:</strong>
-                    ${order.user_id}
-                </p>
+                <p><strong>Customer:</strong> ${escapeHtml(order.customer_name || `#${order.user_id}`)}</p>
+                <p><strong>Email:</strong> ${escapeHtml(order.customer_email || "Not provided")}</p>
+                <p><strong>Phone:</strong> ${escapeHtml(order.customer_phone || "Not provided")}</p>
+
+                <h4>Items</h4>
+                <ul class="order-item-list">${orderItems || "<li>Item details unavailable</li>"}</ul>
+
+                <p><strong>Payment:</strong> ${escapeHtml(order.payment_method || "Not recorded")} · ${escapeHtml(order.payment_status || "PENDING")}</p>
+                ${order.transaction_id ? `<p><strong>UPI reference:</strong> ${escapeHtml(order.transaction_id)}</p>` : ""}
 
 
                 <p>
                     <strong>Delivery Address:</strong>
-                    ${order.delivery_address}
+                    ${escapeHtml(order.delivery_address)}
                 </p>
 
 
@@ -141,62 +184,17 @@ function displayOrders(orders) {
 
 
                 <select
+                    aria-label="Update order ${order.order_id} status"
                     onchange="updateOrderStatus(
                         ${order.order_id},
                         this.value
                     )"
                 >
 
-                    <option value="PENDING"
-                        ${order.order_status === "PENDING"
-                            ? "selected"
-                            : ""}>
-                        PENDING
-                    </option>
-
-                    <option value="CONFIRMED"
-                        ${order.order_status === "CONFIRMED"
-                            ? "selected"
-                            : ""}>
-                        CONFIRMED
-                    </option>
-
-                    <option value="PREPARING"
-                        ${order.order_status === "PREPARING"
-                            ? "selected"
-                            : ""}>
-                        PREPARING
-                    </option>
-
-                    <option value="READY"
-                        ${order.order_status === "READY"
-                            ? "selected"
-                            : ""}>
-                        READY
-                    </option>
-
-                    <option value="OUT_FOR_DELIVERY"
-                        ${order.order_status === "OUT_FOR_DELIVERY"
-                            ? "selected"
-                            : ""}>
-                        OUT_FOR_DELIVERY
-                    </option>
-
-                    <option value="DELIVERED"
-                        ${order.order_status === "DELIVERED"
-                            ? "selected"
-                            : ""}>
-                        DELIVERED
-                    </option>
-
-                    <option value="CANCELLED"
-                        ${order.order_status === "CANCELLED"
-                            ? "selected"
-                            : ""}>
-                        CANCELLED
-                    </option>
-
+                    ${statusOptions}
                 </select>
+
+                ${confirmPaymentButton}
 
                 <button class="print-order-button" type="button" onclick="printOrder(${order.order_id})">
                     Print order
@@ -297,6 +295,25 @@ const response = await fetch(
 
     }
 
+}
+
+async function confirmPayment(orderId) {
+    try {
+        const response = await fetch(`/api/orders/${orderId}/payment/confirm`, {
+            method: "PUT",
+            headers: {
+                "Authorization": `Bearer ${localStorage.getItem("token")}`
+            }
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || "Unable to confirm payment.");
+        }
+
+        await loadAllOrders();
+    } catch (error) {
+        alert(error.message);
+    }
 }
 
 

@@ -23,7 +23,7 @@ adminLoginForm.addEventListener("submit", async event => {
             return;
         }
 
-        if (!["ADMIN", "STAFF"].includes(data.user?.role)) {
+        if (!["ADMIN", "STAFF", "DELIVERY"].includes(data.user?.role)) {
             adminLoginMessage.textContent = "This account does not have staff access.";
             return;
         }

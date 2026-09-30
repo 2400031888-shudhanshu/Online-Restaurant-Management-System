@@ -1,14 +1,5 @@
 const API_URL = "/api/foods";
 
-const CATEGORY_IMAGES = {
-    "Starters": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=900&q=80",
-    "Main Course": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=900&q=80",
-    "Pizza": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=900&q=80",
-    "Burgers": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=80",
-    "Desserts": "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=900&q=80",
-    "Beverages": "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?auto=format&fit=crop&w=900&q=80"
-};
-
 async function loadFoodItems() {
 
     const foodContainer = document.getElementById("food-container");
@@ -35,14 +26,7 @@ async function loadFoodItems() {
             foodImage.className = "food-card-image";
             foodImage.alt = food.food_name;
             foodImage.loading = "lazy";
-            foodImage.src = food.image_url || CATEGORY_IMAGES[food.category_name];
-            foodImage.addEventListener("error", () => {
-                if (foodImage.src !== CATEGORY_IMAGES[food.category_name]) {
-                    foodImage.src = CATEGORY_IMAGES[food.category_name];
-                } else {
-                    foodImage.remove();
-                }
-            });
+            setFoodImage(foodImage, food);
 
             foodCard.innerHTML = `
                 <h3>${food.food_name}</h3>

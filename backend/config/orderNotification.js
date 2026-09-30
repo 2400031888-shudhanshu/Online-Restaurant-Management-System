@@ -47,4 +47,39 @@ async function sendOrderAlert(order) {
     return true;
 }
 
-module.exports = { sendOrderAlert };
+async function sendFeedbackEmail(feedback) {
+    const host = process.env.SMTP_HOST;
+    const username = process.env.SMTP_USER;
+    const password = process.env.SMTP_PASSWORD;
+
+    if (!host || !username || !password) {
+        console.warn("Feedback email skipped: configure SMTP_HOST, SMTP_USER, and SMTP_PASSWORD.");
+        return false;
+    }
+
+    const port = Number(process.env.SMTP_PORT || 587);
+    const transporter = nodemailer.createTransport({
+        host,
+        port,
+        secure: process.env.SMTP_SECURE === "true" || port === 465,
+        auth: { user: username, pass: password }
+    });
+
+    await transporter.sendMail({
+        from: process.env.MAIL_FROM || username,
+        to: process.env.FEEDBACK_EMAIL || "shudhanshukumar973@gmail.com",
+        replyTo: feedback.email,
+        subject: `Restaurant website feedback from ${feedback.name}`,
+        text: [
+            `Name: ${feedback.name}`,
+            `Email: ${feedback.email}`,
+            "",
+            "Feedback:",
+            feedback.message
+        ].join("\n")
+    });
+
+    return true;
+}
+
+module.exports = { sendOrderAlert, sendFeedbackEmail };

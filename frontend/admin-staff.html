@@ -26,6 +26,12 @@
                 <label for="staffPhone">Phone</label>
                 <input id="staffPhone" name="phone" type="tel" maxlength="15" autocomplete="tel">
 
+                <label for="staffRole">Account type</label>
+                <select id="staffRole" name="role" required>
+                    <option value="STAFF">Restaurant staff</option>
+                    <option value="DELIVERY">Delivery person</option>
+                </select>
+
                 <label for="staffPassword">Temporary password</label>
                 <input id="staffPassword" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required>
 
@@ -43,11 +49,12 @@
                             <th>Name</th>
                             <th>Email</th>
                             <th>Phone</th>
+                            <th>Account type</th>
                             <th>Access</th>
                         </tr>
                     </thead>
                     <tbody id="staffList">
-                        <tr><td colspan="4">Loading staff...</td></tr>
+                        <tr><td colspan="5">Loading staff...</td></tr>
                     </tbody>
                 </table>
             </div>

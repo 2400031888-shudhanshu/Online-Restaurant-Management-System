@@ -149,6 +149,16 @@ async function loadOrders() {
 // DISPLAY ORDERS
 // =====================================
 
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[character]);
+}
+
 function displayOrders(orders) {
 
     if (!orders || orders.length === 0) {
@@ -194,6 +204,13 @@ function displayOrders(orders) {
                   ).toLocaleString()
                 : "N/A";
 
+        const orderItems = (order.items || []).map(item => `
+            <li>${escapeHtml(item.food_name)} × ${Number(item.quantity)}
+                <span>₹${Number(item.price).toFixed(2)} each</span>
+                <strong>₹${Number(item.subtotal).toFixed(2)}</strong>
+            </li>
+        `).join("");
+
 
         html += `
 
@@ -208,7 +225,6 @@ function displayOrders(orders) {
                     <span class="order-status">
                         ${order.order_status || "PENDING"}
                     </span>
-
                 </div>
 
 
@@ -217,10 +233,23 @@ function displayOrders(orders) {
                     ₹${amount}
                 </p>
 
+                <p>
+                    <strong>Payment:</strong>
+                    ${escapeHtml(order.payment_method || "Not recorded")} ·
+                    ${escapeHtml(order.payment_status || "PENDING")}
+                </p>
+
+                ${order.transaction_id
+                    ? `<p><strong>UPI reference:</strong> ${escapeHtml(order.transaction_id)}</p>`
+                    : ""}
+
+                <h4>Items</h4>
+                <ul class="order-item-list">${orderItems || "<li>Item details unavailable</li>"}</ul>
+
 
                 <p>
                     <strong>Delivery Address:</strong>
-                    ${order.delivery_address}
+                    ${escapeHtml(order.delivery_address)}
                 </p>
 
 

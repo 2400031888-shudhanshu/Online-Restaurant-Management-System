@@ -49,7 +49,12 @@ async function loadCheckout() {
             throw new Error(data.message || "Unable to load cart");
         }
 
-        displayCheckout(data.items, data.total);
+        const paymentResponse = await fetch("/api/orders/payment-options");
+        const paymentOptions = paymentResponse.ok
+            ? await paymentResponse.json()
+            : { upi_vpa: "" };
+
+        displayCheckout(data.items, data.total, paymentOptions.upi_vpa);
 
     } catch (error) {
         console.error("Checkout Error:", error);
@@ -70,7 +75,17 @@ async function loadCheckout() {
 // DISPLAY CHECKOUT
 // =====================================
 
-function displayCheckout(items, total) {
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[character]);
+}
+
+function displayCheckout(items, total, upiVpa) {
     if (!checkoutContainer) {
         return;
     }
@@ -94,7 +109,7 @@ function displayCheckout(items, total) {
     items.forEach(item => {
         html += `
             <div class="cart-item">
-                <h4>${item.food_name}</h4>
+                <h4>${escapeHtml(item.food_name)}</h4>
                 <p>Price: ₹${Number(item.price).toFixed(2)}</p>
                 <p>Quantity: ${item.quantity}</p>
                 <p><strong>Subtotal: ₹${Number(item.subtotal).toFixed(2)}</strong></p>
@@ -108,6 +123,22 @@ function displayCheckout(items, total) {
         <div class="cart-total">
             <h2>Total: ₹${Number(total).toFixed(2)}</h2>
         </div>
+        <h3>Payment method</h3>
+        <fieldset class="payment-options">
+            <legend>Choose how to pay</legend>
+            <label><input type="radio" name="payment_method" value="COD" checked> Cash on delivery</label>
+            <label><input type="radio" name="payment_method" value="UPI"> UPI</label>
+        </fieldset>
+        <div id="upi-details" hidden>
+            ${upiVpa
+                     ? `<p>Pay ₹${Number(total).toFixed(2)} to <strong>${escapeHtml(upiVpa)}</strong>.</p>
+                         <img class="upi-qr-code" src="/api/orders/upi-qr?amount=${encodeURIComponent(Number(total).toFixed(2))}" alt="Scan to pay ${Number(total).toFixed(2)} rupees to ${escapeHtml(upiVpa)}">
+                         <a class="button-link" href="upi://pay?pa=${encodeURIComponent(upiVpa)}&pn=Online%20Restaurant&am=${Number(total).toFixed(2)}&cu=INR&tn=Restaurant%20order%20payment">Open UPI app</a>`
+                : "<p>The restaurant UPI ID is not configured yet. Add UPI_VPA to backend/.env before accepting UPI payments.</p>"}
+            <label for="upi-transaction-id">UPI transaction reference (optional)</label>
+            <input id="upi-transaction-id" maxlength="100" autocomplete="off" placeholder="Enter UPI reference after paying">
+            <p>UPI payments remain pending until staff verifies them.</p>
+        </div>
         <h3>Delivery Address</h3>
         <textarea id="delivery-address" rows="5" cols="50" placeholder="Enter your complete delivery address"></textarea>
         <br><br>
@@ -116,6 +147,12 @@ function displayCheckout(items, total) {
     `;
 
     checkoutContainer.innerHTML = html;
+    document.querySelectorAll('input[name="payment_method"]').forEach(radio => {
+        radio.addEventListener("change", () => {
+            document.getElementById("upi-details").hidden =
+                document.querySelector('input[name="payment_method"]:checked').value !== "UPI";
+        });
+    });
 }
 
 // =====================================
@@ -131,6 +168,8 @@ async function placeOrder() {
     }
 
     const deliveryAddress = addressElement.value.trim();
+    const paymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value;
+    const transactionId = document.getElementById("upi-transaction-id")?.value.trim() || "";
 
     if (!deliveryAddress) {
         alert("Please enter your delivery address.");
@@ -146,7 +185,9 @@ async function placeOrder() {
             },
             body: JSON.stringify({
                 user_id: user.user_id,
-                delivery_address: deliveryAddress
+                delivery_address: deliveryAddress,
+                payment_method: paymentMethod,
+                transaction_id: paymentMethod === "UPI" ? transactionId : ""
             })
         });
 

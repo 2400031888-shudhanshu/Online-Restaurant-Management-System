@@ -7,9 +7,9 @@ const { verifyToken, requireAdmin } = require("../middleware/authMiddleware");
 
 router.get("/", verifyToken, requireAdmin, (req, res) => {
     const sql = `
-        SELECT user_id, name, email, phone, created_at
+        SELECT user_id, name, email, phone, role, created_at
         FROM users
-        WHERE role = 'STAFF' AND is_active = 1
+        WHERE role IN ('STAFF', 'DELIVERY') AND is_active = 1
         ORDER BY name, user_id
     `;
 
@@ -28,6 +28,11 @@ router.post("/", verifyToken, requireAdmin, async (req, res) => {
     const email = String(req.body.email || "").trim().toLowerCase();
     const phone = String(req.body.phone || "").trim();
     const password = String(req.body.password || "");
+    const role = String(req.body.role || "STAFF").trim().toUpperCase();
+
+    if (!["STAFF", "DELIVERY"].includes(role)) {
+        return res.status(400).json({ message: "Choose a valid account type." });
+    }
 
     if (!name || !email || !password) {
         return res.status(400).json({ message: "Name, email, and password are required." });
@@ -49,10 +54,10 @@ router.post("/", verifyToken, requireAdmin, async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const sql = `
             INSERT INTO users (name, email, password, phone, role, is_active)
-            VALUES (?, ?, ?, ?, 'STAFF', 1)
+            VALUES (?, ?, ?, ?, ?, 1)
         `;
 
-        db.query(sql, [name, email, hashedPassword, phone || null], (error, result) => {
+        db.query(sql, [name, email, hashedPassword, phone || null, role], (error, result) => {
             if (error?.code === "ER_DUP_ENTRY") {
                 return res.status(409).json({ message: "An account with this email already exists." });
             }
@@ -63,7 +68,7 @@ router.post("/", verifyToken, requireAdmin, async (req, res) => {
             }
 
             return res.status(201).json({
-                message: "Staff account created.",
+                message: `${role === "DELIVERY" ? "Delivery" : "Staff"} account created.`,
                 user_id: result.insertId
             });
         });
@@ -81,7 +86,7 @@ router.delete("/:user_id", verifyToken, requireAdmin, (req, res) => {
     }
 
     db.query(
-        "UPDATE users SET is_active = 0 WHERE user_id = ? AND role = 'STAFF' AND is_active = 1",
+        "UPDATE users SET is_active = 0 WHERE user_id = ? AND role IN ('STAFF', 'DELIVERY') AND is_active = 1",
         [userId],
         (error, result) => {
             if (error) {

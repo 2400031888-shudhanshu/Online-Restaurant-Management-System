@@ -21,6 +21,7 @@ staffForm.addEventListener("submit", async event => {
         name: document.getElementById("staffName").value.trim(),
         email: document.getElementById("staffEmail").value.trim(),
         phone: document.getElementById("staffPhone").value.trim(),
+        role: document.getElementById("staffRole").value,
         password: document.getElementById("staffPassword").value
     };
 
@@ -66,7 +67,7 @@ async function loadStaff() {
         if (staff.length === 0) {
             const row = document.createElement("tr");
             const cell = document.createElement("td");
-            cell.colSpan = 4;
+            cell.colSpan = 5;
             cell.textContent = "No active staff accounts.";
             row.appendChild(cell);
             staffList.appendChild(row);
@@ -75,7 +76,7 @@ async function loadStaff() {
 
         staff.forEach(member => {
             const row = document.createElement("tr");
-            [member.name, member.email, member.phone || "—"].forEach(value => {
+            [member.name, member.email, member.phone || "—", member.role === "DELIVERY" ? "Delivery" : "Staff"].forEach(value => {
                 const cell = document.createElement("td");
                 cell.textContent = value;
                 row.appendChild(cell);

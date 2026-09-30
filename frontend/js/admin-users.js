@@ -34,7 +34,7 @@ async function loadAccounts() {
         accounts = data;
         document.getElementById("totalAccounts").textContent = accounts.length;
         document.getElementById("activeAccounts").textContent = accounts.filter(account => Number(account.is_active) === 1).length;
-        document.getElementById("staffAccounts").textContent = accounts.filter(account => account.role === "STAFF").length;
+        document.getElementById("staffAccounts").textContent = accounts.filter(account => ["STAFF", "DELIVERY"].includes(account.role)).length;
         renderAccounts();
     } catch (error) {
         console.error(error);

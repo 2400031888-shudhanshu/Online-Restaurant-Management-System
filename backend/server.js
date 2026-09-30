@@ -51,6 +51,9 @@ app.use(
     categoryRoutes
 );
 
+const feedbackRoutes = require("./routes/feedbackRoutes");
+app.use("/api/feedback", feedbackRoutes);
+
 // Exact frontend folder
 const frontendPath = path.resolve(__dirname, "../frontend");
 
