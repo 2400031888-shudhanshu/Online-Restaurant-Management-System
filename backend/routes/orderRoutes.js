@@ -2,7 +2,6 @@ const express = require("express");
 
 const router = express.Router();
 const db = require("../config/database");
-const QRCode = require("qrcode");
 
 const {
     verifyToken,
@@ -250,28 +249,6 @@ router.get("/payment-options", (req, res) => {
         upi_vpa: process.env.UPI_VPA || "8809273370@upi",
         upi_payee_name: process.env.UPI_PAYEE_NAME || "Shudhanshu Kumar"
     });
-});
-
-router.get("/upi-qr", async (req, res) => {
-    const paymentUri = new URL("upi://pay");
-    paymentUri.searchParams.set("pa", process.env.UPI_VPA || "8809273370@upi");
-    paymentUri.searchParams.set("pn", process.env.UPI_PAYEE_NAME || "Shudhanshu Kumar");
-    paymentUri.searchParams.set("cu", "INR");
-    paymentUri.searchParams.set("tn", "Restaurant order payment");
-
-    try {
-        const image = await QRCode.toBuffer(paymentUri.toString(), {
-            type: "png",
-            errorCorrectionLevel: "M",
-            margin: 2,
-            width: 320
-        });
-        res.set("Cache-Control", "no-store");
-        res.type("png").send(image);
-    } catch (error) {
-        console.error("Unable to create UPI QR code:", error);
-        return res.status(500).json({ message: "Unable to create UPI payment QR." });
-    }
 });
 
 router.get(

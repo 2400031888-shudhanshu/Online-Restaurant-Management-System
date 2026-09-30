@@ -166,16 +166,6 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.upi-qr-code {
-    display: block;
-    width: 240px;
-    max-width: 100%;
-    height: auto;
-    margin: 12px 0;
-    border: 8px solid #fff;
-    image-rendering: pixelated;
-}
-
 @media (max-width: 760px) {
     .home-main {
         padding-top: 42px;

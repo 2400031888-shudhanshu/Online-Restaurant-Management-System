@@ -134,8 +134,7 @@ function displayCheckout(items, total, upiOptions) {
         </fieldset>
         <div id="upi-details" hidden>
             ${upiVpa
-                     ? `<p>Scan the QR, confirm <strong>${escapeHtml(upiPayeeName)}</strong> (${escapeHtml(upiVpa)}), then enter <strong>₹${Number(total).toFixed(2)}</strong> in your UPI app. The QR does not include an amount.</p>
-                         <img class="upi-qr-code" src="/api/orders/upi-qr" alt="UPI QR for ${escapeHtml(upiPayeeName)} at ${escapeHtml(upiVpa)}; enter the amount in your app">
+                     ? `<p>Pay <strong>₹${Number(total).toFixed(2)}</strong> to <strong>${escapeHtml(upiPayeeName)}</strong> (${escapeHtml(upiVpa)}) using your UPI app.</p>
                          <a class="button-link" href="upi://pay?pa=${encodeURIComponent(upiVpa)}&pn=${encodeURIComponent(upiPayeeName)}&cu=INR&tn=Restaurant%20order%20payment">Open UPI app</a>`
                 : "<p>The restaurant UPI ID is not configured yet. Add UPI_VPA to backend/.env before accepting UPI payments.</p>"}
             <label for="upi-transaction-id">UPI transaction reference (optional)</label>
